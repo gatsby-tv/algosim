@@ -3,8 +3,8 @@ import logging
 from simpy import Environment
 from faker import Faker
 
-from .selection import Selector
-from .rating import Rater
+from .selection import SelectorFunction, BiasFunction, FilterFunction
+from .rating import RaterFunction
 from .rng import Rng
 from .user import User
 from .data import Database
@@ -16,27 +16,45 @@ class Controller(object):
         self.env = Environment()
         self.duration = config["duration"]
         seed = config.get("seed")
+        if seed is not None:
+            seed = abs(hash(seed))
         faker = Faker()
         faker.seed_instance(seed)
-        user_rng = Controller._get_rng(seed, config, ["users", "wait_time_distribution"])
+        user_rng = Controller._get_rng(seed, config, ["wait_time_distribution"])
         quality_rng = Controller._get_rng(seed, config, ["videos", "quality_distribution"])
-        rater = Controller._get_method(config, ["rating", "method"])
-        selector = Controller._get_method(config, ["selection", "method"])
-        Rater.configure(seed, config["rating"]["args"])
-        Selector.configure(seed, config["selection"]["args"])
+
+        Rater = RaterFunction.configure("Rater", seed, config["rating"].get("args"))
+        rater_method = Controller._get_method(config, ["rating", "method"])
+        rater = getattr(Rater, rater_method)
 
         self.data = Database(
             config["videos"]["count"],
             faker,
             rater,
-            selector,
             quality_rng,
             keep_sorted = config["videos"].get("keep_sorted", True)
         )
         self.events = Events()
 
-        for _ in range(config["users"]["count"]):
-            User(faker, user_rng).process(self.env, self.data, self.events)
+        for user in config["users"]:
+            selection_conf = user["selection"]
+            bias_conf = user.get("bias")
+            filter_conf = user.get("filter")
+
+            if not bias_conf:
+                bias_conf = BiasFunction.default
+            if not filter_conf:
+                filter_conf = FilterFunction.default
+
+            Selector = SelectorFunction.configure("Selector", seed, selection_conf.get("args"))
+            Bias = BiasFunction.configure("Bias", seed, bias_conf.get("args"))
+            Filter = FilterFunction.configure("Filter", seed, filter_conf.get("args"))
+            selector = getattr(Selector, Controller._get_method(selection_conf, ["method"]))
+            bias = getattr(Bias, Controller._get_method(bias_conf, ["method"]))
+            filter = getattr(Filter, Controller._get_method(filter_conf, ["method"]))
+
+            for _ in range(user["count"]):
+                User(faker, user_rng, selector, bias, filter).process(self.env, self.data, self.events)
 
     @staticmethod
     def _get_rng(seed, config, keys):
@@ -44,7 +62,7 @@ class Controller(object):
         for key in keys:
             settings = settings[key]
         method = settings["method"]
-        args = settings["args"]
+        args = settings.get("args", {})
         return Rng(seed, method.lower().replace(" ", "_"), **args)
 
     @staticmethod

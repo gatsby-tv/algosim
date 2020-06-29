@@ -1,71 +1,72 @@
+import logging
+
 import numpy as np
 import scipy.special as special
 
+from .function import Function
 
-class Bias(object):
-    config = {}
+class FilterFunction(Function):
+    default = {"method": "no_repeat_promotions", "args": {}}
+
+    @classmethod
+    def none(cls, user, videos):
+        return videos
+
+    @classmethod
+    def no_repeat_promotions(cls, user, videos):
+        return [v for v in videos if v not in user.promoted]
+
+
+class BiasFunction(Function):
     default = {"method": "quality", "args": {}}
-    rng = None
 
-    @staticmethod
-    def configure(seed, settings):
-        Bias.config = settings
-        Bias.rng = np.random.default_rng(seed)
-
-    @staticmethod
-    def quality(time, video):
+    @classmethod
+    def quality(cls, time, video):
         return video.quality
 
+    @classmethod
+    def quality_with_rating_saturation(cls, time, video):
+        scale, alpha, offset = cls.settings(["scale", "alpha", "offset"])
+        factor = scale / (1 + np.exp(alpha * (video.rating(time) - offset)))
+        return factor * video.quality
 
-class Selector(object):
-    config = {}
-    rng = None
-    bias = None
 
-    @staticmethod
-    def configure(seed, settings):
-        bias = settings.pop("bias", Bias.default)
-        Bias.configure(seed, bias["args"])
-        Selector.bias = getattr(Bias, bias["method"].lower().replace(" ", "_"))
-        Selector.config = settings
-        Selector.rng = np.random.default_rng(seed)
+class SelectorFunction(Function):
+    @classmethod
+    def maximum(cls, time, user, videos):
+        videos = user.filter(user, videos)
+        return max(videos, key=lambda v: user.bias(time, v))
 
-    @staticmethod
-    def settings(keys):
-        return map(lambda k: float(Selector.config[k]), keys)
+    @classmethod
+    def random(cls, time, user, videos):
+        videos = user.filter(user, videos)
+        return videos[int(cls.rng.uniform(0, len(videos)))]
 
-    @staticmethod
-    def maximum(time, videos):
-        # TODO: fix so that we can use this method for biases with rng.
-        target = max([Selector.bias(time, v) for v in videos])
-        return next(filter(lambda v: Selector.bias(time, v) == target, videos))
-
-    @staticmethod
-    def random(time, videos):
-        videos[int(Selector.rng.uniform(0, len(videos)))]
-
-    @staticmethod
-    def threshold(time, videos):
-        threshold, = Selector.settings(["threshold"])
+    @classmethod
+    def threshold(cls, time, user, videos):
+        videos = user.filter(user, videos)
+        value, = cls.settings(["value"])
         for video in videos:
-            if Selector.bias(time, video) < threshold:
+            if user.bias(time, video) < threshold:
                 return video
 
-    @staticmethod
-    def fair_threshold(time, videos):
+    @classmethod
+    def fair_threshold(cls, time, user, videos):
         videos = videos.copy()
-        Selector.rng.shuffle(videos)
-        return Selector.threshold(time, videos)
+        cls.rng.shuffle(videos)
+        return cls.threshold(time, videos)
 
-    @staticmethod
-    def probability(time, videos):
-        scale = Selector.config.get("scale", 1)
+    @classmethod
+    def probability(cls, time, user, videos):
+        videos = user.filter(user, videos)
+        scale = cls.config.get("scale", 1)
         for video in videos:
-            if Selector.rng.uniform() < special.erf(scale * Selector.bias(time, video)):
+            score = (special.erf(2 * scale * user.bias(time, video) - 1) + 1) / 2
+            if cls.rng.uniform() < score:
                 return video
 
-    @staticmethod
-    def fair_probability(time, videos):
+    @classmethod
+    def fair_probability(cls, time, user, videos):
         videos = videos.copy()
-        Selector.rng.shuffle(videos)
-        return Selector.probability(time, videos)
+        cls.rng.shuffle(videos)
+        return cls.probability(time, videos)

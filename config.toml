@@ -1,29 +1,26 @@
-duration = 100
-seed = 2020
+duration = 200
+seed = "I peed myself in the library!?"
 
-[users]
-count = 10
-
-[users.wait_time_distribution]
+[wait_time_distribution]
 method = "exponential"
-args = {scale = 5}
+args = {scale = 10}
 
 [videos]
-count = 50
-keep_sorted = true
+count = 100
 
 [videos.quality_distribution]
-method = "uniform"
-args = {low = 0, high = 1}
+method = "normal"
 
 [rating]
 method = "logistic decay"
-args = {scale = 1, alpha = 1, offset = 5}
+args = {scale = 1, alpha = 1, offset = 10}
 
-[selection]
+[[users]]
+count = 20
+
+[users.selection]
 method = "probability"
-args = {scale = 1}
 
-[selection.bias]
-method = "quality"
-args = {}
+[users.bias]
+method = "quality with rating saturation"
+args = {scale = 1, alpha = 0.5, offset = 8}
