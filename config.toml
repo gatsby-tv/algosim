@@ -1,0 +1,25 @@
+duration = 100
+seed = 2020
+
+[users]
+count = 10
+
+[users.wait_time_distribution]
+method = "exponential"
+args = {scale = 5}
+
+[videos]
+count = 50
+keep_sorted = true
+
+[videos.quality_distribution]
+method = "uniform"
+args = {low = 0, high = 1}
+
+[rating]
+method = "logistic decay"
+args = {scale = 1, alpha = 1, offset = 5}
+
+[selection]
+method = "quality based probability"
+args = {scale = 1}
