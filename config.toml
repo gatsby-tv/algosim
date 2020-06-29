@@ -21,5 +21,9 @@ method = "logistic decay"
 args = {scale = 1, alpha = 1, offset = 5}
 
 [selection]
-method = "quality based probability"
+method = "probability"
 args = {scale = 1}
+
+[selection.bias]
+method = "quality"
+args = {}
