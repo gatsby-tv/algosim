@@ -12,8 +12,8 @@ count = 100
 method = "normal"
 
 [rating]
-method = "logistic decay"
-args = {scale = 1, alpha = 1, offset = 10}
+method = "step"
+args = {width = 10}
 
 [[users]]
 count = 20
