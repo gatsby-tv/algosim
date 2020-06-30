@@ -2,6 +2,8 @@ from pathlib import Path
 import logging
 
 import click
+import numpy as np
+import matplotlib.pyplot as plt
 
 from .controller import Controller
 
@@ -22,7 +24,11 @@ def set_verbosity(v):
     default="./config.toml",
     show_default=True,
 )
-def cli(verbose, config):
+@click.option(
+    "-p",
+    "--plot",
+)
+def cli(verbose, config, plot):
     set_verbosity(verbose)
     config = Path(config)
     if not config.exists():
@@ -30,3 +36,15 @@ def cli(verbose, config):
         exit(1)
     controller = Controller.from_toml(config)
     results = controller.run()
+    if plot is not None:
+        keywords = set(plot.lower().split(" "))
+
+        def search(data):
+            test = data.video.title.lower().replace("!?", "").split(" ")
+            return all([key in test for key in keywords])
+
+        targets = list(filter(search, results))
+
+        if targets:
+            plt.plot(targets[0].times, targets[0].ratings)
+            plt.show()

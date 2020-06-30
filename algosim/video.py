@@ -1,3 +1,6 @@
+from itertools import chain
+
+import numpy as np
 from colorama import Fore
 
 from .rating import Promotion
@@ -14,6 +17,14 @@ class Video(object):
 
     def rating(self, time):
         return self.rater(time, self.promotions)
+
+    def history(self, time, steps=1000):
+        def filter_promotions(time):
+            return filter(lambda p: p.time < time, self.promotions)
+
+        times = np.arange(0, time, time / steps)
+        ratings = np.fromiter(map(lambda t: self.rater(t, filter_promotions(t)), times), float)
+        return times, ratings
 
     def __repr__(self):
         return (

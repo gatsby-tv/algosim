@@ -54,7 +54,7 @@ class SelectorFunction(Function):
     def fair_threshold(cls, time, user, videos):
         videos = videos.copy()
         cls.rng.shuffle(videos)
-        return cls.threshold(time, videos)
+        return cls.threshold(time, user, videos)
 
     @classmethod
     def probability(cls, time, user, videos):
@@ -69,4 +69,4 @@ class SelectorFunction(Function):
     def fair_probability(cls, time, user, videos):
         videos = videos.copy()
         cls.rng.shuffle(videos)
-        return cls.probability(time, videos)
+        return cls.probability(time, user, videos)

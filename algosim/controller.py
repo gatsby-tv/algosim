@@ -1,3 +1,4 @@
+from collections import namedtuple
 import logging
 
 from simpy import Environment
@@ -8,8 +9,9 @@ from .rating import RaterFunction
 from .rng import Rng
 from .user import User
 from .data import Database
-from .events import Events
 
+
+VideoData = namedtuple("VideoData", ["video", "times", "ratings"])
 
 class Controller(object):
     def __init__(self, config):
@@ -17,7 +19,7 @@ class Controller(object):
         self.duration = config["duration"]
         seed = config.get("seed")
         if seed is not None:
-            seed = abs(hash(seed))
+            seed = int.from_bytes(seed.encode("utf-8"), "little")
         faker = Faker()
         faker.seed_instance(seed)
         user_rng = Controller._get_rng(seed, config, ["wait_time_distribution"])
@@ -34,7 +36,6 @@ class Controller(object):
             quality_rng,
             keep_sorted = config["videos"].get("keep_sorted", True)
         )
-        self.events = Events()
 
         for user in config["users"]:
             selection_conf = user["selection"]
@@ -54,7 +55,7 @@ class Controller(object):
             filter = getattr(Filter, Controller._get_method(filter_conf, ["method"]))
 
             for _ in range(user["count"]):
-                User(faker, user_rng, selector, bias, filter).process(self.env, self.data, self.events)
+                User(faker, user_rng, selector, bias, filter).process(self.env, self.data)
 
     @staticmethod
     def _get_rng(seed, config, keys):
@@ -77,7 +78,15 @@ class Controller(object):
         from toml import load
         return cls(load(config))
 
+    def report(self):
+        results = []
+        for video in self.data.videos:
+            times, ratings = video.history(self.duration)
+            results.append(VideoData(video, times, ratings))
+        return results
+
     def run(self):
         logging.info("Starting simulation...")
         self.env.run(until=self.duration)
         logging.info("Simulation completed.")
+        return self.report()

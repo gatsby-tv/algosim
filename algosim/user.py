@@ -19,7 +19,7 @@ class User(Model):
         self.filter = filter
         self.promoted = []
 
-    def step(self, env, data, events):
+    def step(self, env, data):
         logging.debug(f"Starting process for user: {Fore.CYAN}{self.id}{Fore.WHITE}")
         while True:
             duration = self.wait_rng()
@@ -43,7 +43,6 @@ class User(Model):
                     f"(rating: {Fore.RED}{rating_before:.4f}{Fore.WHITE} "
                     f"-> {Fore.RED}{rating_after:.4f}{Fore.WHITE})"
                 )
-                events.submit(env.now, selection)
             else:
                 logging.debug(
                     f"[{env.now:0>17.8f}] {Fore.CYAN}{self.id}{Fore.WHITE} "
